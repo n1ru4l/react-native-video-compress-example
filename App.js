@@ -1,58 +1,71 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- * @flow
- */
-
-import React, { Component } from 'react';
+import React, { Component } from "react";
 import {
   Platform,
-  StyleSheet,
+  TouchableWithoutFeedback,
   Text,
-  View
-} from 'react-native';
+  View,
+  CameraRoll,
+  NativeModules
+} from "react-native";
+import { RNCamera } from "react-native-camera";
 
-const instructions = Platform.select({
-  ios: 'Press Cmd+R to reload,\n' +
-    'Cmd+D or shake for dev menu',
-  android: 'Double tap R on your keyboard to reload,\n' +
-    'Shake or press menu button for dev menu',
-});
+const { VideoCompressService } = NativeModules;
 
-type Props = {};
-export default class App extends Component<Props> {
+export default class App extends Component {
+  state = {
+    isRecording: false
+  };
+  camera = null;
+
   render() {
+    const { state: { isRecording } } = this;
     return (
-      <View style={styles.container}>
-        <Text style={styles.welcome}>
-          Welcome to React Native!
-        </Text>
-        <Text style={styles.instructions}>
-          To get started, edit App.js
-        </Text>
-        <Text style={styles.instructions}>
-          {instructions}
-        </Text>
-      </View>
+      <RNCamera
+        ref={ref => {
+          this.camera = ref;
+        }}
+        style={{
+          flex: 1,
+          flexDirection: "row",
+          alignItems: "flex-end",
+          justifyContent: "center",
+          padding: 20
+        }}
+      >
+        <TouchableWithoutFeedback
+          onLongPress={async () => {
+            if (!this.camera) {
+              return;
+            }
+            this.setState({ isRecording: true });
+            const { uri } = await this.camera.recordAsync({
+              quality: RNCamera.Constants.VideoQuality["720p"]
+            });
+            this.setState({ isRecording: false });
+            const compressedUri = await VideoCompressService.compressVideo(uri);
+            await CameraRoll.saveToCameraRoll(uri);
+            await CameraRoll.saveToCameraRoll(compressedUri);
+          }}
+          onPressOut={async () => {
+            this.camera.stopRecording();
+          }}
+          style={{
+            height: 100,
+            width: 100,
+            marginRight: "auto"
+          }}
+        >
+          <View
+            style={{
+              height: 100,
+              width: 100,
+              backgroundColor: isRecording ? "red" : "white",
+              borderRadius: 100,
+              overflow: "hidden"
+            }}
+          />
+        </TouchableWithoutFeedback>
+      </RNCamera>
     );
   }
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F5FCFF',
-  },
-  welcome: {
-    fontSize: 20,
-    textAlign: 'center',
-    margin: 10,
-  },
-  instructions: {
-    textAlign: 'center',
-    color: '#333333',
-    marginBottom: 5,
-  },
-});
